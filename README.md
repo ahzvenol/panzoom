@@ -73,7 +73,7 @@ With a script tag:
 With a script tag from a CDN:
 
 ```html
-<script src="https://unpkg.com/@panzoom/panzoom@4.6.0/dist/panzoom.min.js"></script>
+<script src="https://unpkg.com/@panzoom/panzoom@4.6.1/dist/panzoom.min.js"></script>
 ```
 
 ## Usage
@@ -151,7 +151,7 @@ See this [stackoverflow question](https://stackoverflow.com/questions/70428922/p
 
 ## Panzoom()
 
-> **Panzoom**(`elem`, `options`?): `[PanzoomObject](#PanzoomObject)`
+> **Panzoom**(`elem`, `options?`): `[PanzoomObject](#PanzoomObject)`
 
 Defined in: [panzoom.ts:60](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/panzoom.ts#L60)
 
@@ -186,6 +186,8 @@ Defined in: [types.ts:19](https://github.com/enhancer13/panzoom/blob/9efb1b23a0d
 ## Indexable
 
 \[`key`: `string`\]: `any`
+
+Pass through any options like data
 
 ## Properties
 
@@ -392,7 +394,7 @@ https://github.com/timmywil/panzoom/issues/606
 
 ### setTransform()?
 
-> `optional` **setTransform**: (`elem`, `__namedParameters`, `_options`?) => `void`
+> `optional` **setTransform**: (`elem`, `__namedParameters`, `_options?`) => `void`
 
 Defined in: [types.ts:129](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/types.ts#L129)
 
@@ -869,7 +871,7 @@ Defined in: [types.ts:288](https://github.com/enhancer13/panzoom/blob/9efb1b23a0
 
 ### pan()
 
-> **pan**: (`x`, `y`, `panOptions`?) => `[CurrentValues](#CurrentValues)`
+> **pan**: (`x`, `y`, `panOptions?`) => `[CurrentValues](#CurrentValues)`
 
 Defined in: [types.ts:299](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/types.ts#L299)
 
@@ -904,7 +906,7 @@ panzoom.pan(10, 10, { relative: true })
 
 ### reset()
 
-> **reset**: (`resetOptions`?) => `[CurrentValues](#CurrentValues)`
+> **reset**: (`resetOptions?`) => `[CurrentValues](#CurrentValues)`
 
 Defined in: [types.ts:312](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/types.ts#L312)
 
@@ -952,7 +954,7 @@ panzoom.resetStyle()
 
 ### setOptions()
 
-> **setOptions**: (`options`?) => `void`
+> **setOptions**: (`options?`) => `void`
 
 Defined in: [types.ts:334](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/types.ts#L334)
 
@@ -1005,7 +1007,7 @@ A convenience method for setting prefixed styles on the Panzoom element
 
 ### zoom()
 
-> **zoom**: (`scale`, `zoomOptions`?) => `[CurrentValues](#CurrentValues)`
+> **zoom**: (`scale`, `zoomOptions?`) => `[CurrentValues](#CurrentValues)`
 
 Defined in: [types.ts:345](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/types.ts#L345)
 
@@ -1034,7 +1036,7 @@ panzoom.zoom(2.2, { animate: true })
 
 ### zoomIn()
 
-> **zoomIn**: (`zoomOptions`?) => `[CurrentValues](#CurrentValues)`
+> **zoomIn**: (`zoomOptions?`) => `[CurrentValues](#CurrentValues)`
 
 Defined in: [types.ts:356](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/types.ts#L356)
 
@@ -1061,7 +1063,7 @@ panzoom.zoomIn({ animate: false })
 
 ### zoomOut()
 
-> **zoomOut**: (`zoomOptions`?) => `[CurrentValues](#CurrentValues)`
+> **zoomOut**: (`zoomOptions?`) => `[CurrentValues](#CurrentValues)`
 
 Defined in: [types.ts:367](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/types.ts#L367)
 
@@ -1088,7 +1090,7 @@ panzoom.zoomOut({ animate: false })
 
 ### zoomToPoint()
 
-> **zoomToPoint**: (`scale`, `point`, `zoomOptions`?) => `[CurrentValues](#CurrentValues)`
+> **zoomToPoint**: (`scale`, `point`, `zoomOptions?`) => `[CurrentValues](#CurrentValues)`
 
 Defined in: [types.ts:378](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/types.ts#L378)
 
@@ -1129,7 +1131,7 @@ panzoom.zoomToPoint(1.2, pointerEvent)
 
 ### zoomWithWheel()
 
-> **zoomWithWheel**: (`event`, `zoomOptions`?) => `[CurrentValues](#CurrentValues)`
+> **zoomWithWheel**: (`event`, `zoomOptions?`) => `[CurrentValues](#CurrentValues)`
 
 Defined in: [types.ts:411](https://github.com/enhancer13/panzoom/blob/9efb1b23a0da18c98f5319f0edef7b10c4eb98d6/src/types.ts#L411)
 
