@@ -40,7 +40,6 @@ const defaultOptions: PanzoomGlobalOptions = {
   exclude: [],
   excludeClass: 'panzoom-exclude',
   handleStartEvent: (e: Event) => {
-    e.preventDefault()
     e.stopPropagation()
   },
   maxScale: 4,
@@ -183,15 +182,12 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
     }
     toX = parseFloat(toX as string)
     toY = parseFloat(toY as string)
-
     if (!opts.disableXAxis) {
       result.x = (opts.relative ? x : 0) + toX
     }
-
     if (!opts.disableYAxis) {
       result.y = (opts.relative ? y : 0) + toY
     }
-
     if (opts.contain) {
       const dims = getDimensions(elem)
       const realWidth = dims.elem.width / scale
@@ -200,7 +196,6 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
       const scaledHeight = realHeight * toScale
       const diffHorizontal = (scaledWidth - realWidth) / 2
       const diffVertical = (scaledHeight - realHeight) / 2
-
       if (opts.contain === 'inside') {
         const minX = (-dims.elem.margin.left - dims.parent.padding.left + diffHorizontal) / toScale
         const maxX =
@@ -243,27 +238,104 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
           toScale
         const maxY = (diffVertical - dims.parent.padding.top) / toScale
         result.y = Math.max(Math.min(result.y, maxY), minY)
+      } else if (opts.contain === 'automatic') {
+        // Automatic containment:
+        // We need to account for parent scale (CSS transform on parent).
+        // dims.parent.width/height are Screen pixels (scaled).
+        // dims.parent.padding/border are Layout pixels (unscaled).
+        // To mix them, we calculate parentScale and convert screen dimensions to layout dimensions.
+        const parent = elem.parentNode as HTMLElement
+        let parentScale = 1
+        if (parent.offsetWidth) {
+          parentScale = dims.parent.width / parent.offsetWidth
+        }
+
+        const parentInnerWidth =
+          dims.parent.width / parentScale -
+          dims.parent.padding.left -
+          dims.parent.padding.right -
+          dims.parent.border.left -
+          dims.parent.border.right
+        const parentInnerHeight =
+          dims.parent.height / parentScale -
+          dims.parent.padding.top -
+          dims.parent.padding.bottom -
+          dims.parent.border.top -
+          dims.parent.border.bottom
+
+        // Convert scaled dimensions to layout space for comparison and calculation
+        const scaledWidthLayout = scaledWidth / parentScale
+        const scaledHeightLayout = scaledHeight / parentScale
+        const diffHorizontalLayout = diffHorizontal / parentScale
+        const diffVerticalLayout = diffVertical / parentScale
+
+        // X AXIS
+        if (scaledWidthLayout < parentInnerWidth) {
+          // Center horizontal
+          const minX =
+            (-dims.elem.margin.left - dims.parent.padding.left + diffHorizontalLayout) / toScale
+          const maxX =
+            (parentInnerWidth -
+              scaledWidthLayout -
+              dims.elem.margin.left -
+              dims.parent.padding.left +
+              diffHorizontalLayout) /
+            toScale
+          result.x = (minX + maxX) / 2
+        } else {
+          // Overflow horizontal (Outside logic)
+          const minX =
+            (-(scaledWidthLayout - dims.parent.width / parentScale) -
+              dims.parent.padding.left -
+              dims.parent.border.left -
+              dims.parent.border.right +
+              diffHorizontalLayout) /
+            toScale
+          const maxX = (diffHorizontalLayout - dims.parent.padding.left) / toScale
+          result.x = Math.max(Math.min(result.x, maxX), minX)
+        }
+
+        // Y AXIS
+        if (scaledHeightLayout < parentInnerHeight) {
+          // Center vertical
+          const minY =
+            (-dims.elem.margin.top - dims.parent.padding.top + diffVerticalLayout) / toScale
+          const maxY =
+            (parentInnerHeight -
+              scaledHeightLayout -
+              dims.elem.margin.top -
+              dims.parent.padding.top +
+              diffVerticalLayout) /
+            toScale
+          result.y = (minY + maxY) / 2
+        } else {
+          // Overflow vertical (Outside logic)
+          const minY =
+            (-(scaledHeightLayout - dims.parent.height / parentScale) -
+              dims.parent.padding.top -
+              dims.parent.border.top -
+              dims.parent.border.bottom +
+              diffVerticalLayout) /
+            toScale
+          const maxY = (diffVerticalLayout - dims.parent.padding.top) / toScale
+          result.y = Math.max(Math.min(result.y, maxY), minY)
+        }
       }
     }
-
     if (opts.roundPixels) {
       result.x = Math.round(result.x)
       result.y = Math.round(result.y)
     }
-
     return result
   }
-
   function constrainScale(toScale: number, zoomOptions?: ZoomOptions) {
     const opts = { ...options, ...zoomOptions }
     const result = { scale, opts }
     if (!zoomOptions?.force && opts.disableZoom) {
       return result
     }
-
     let minScale = options.minScale
     let maxScale = options.maxScale
-
     if (opts.contain) {
       const dims = getDimensions(elem)
       const elemWidth = dims.elem.width / scale
@@ -277,10 +349,34 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
           maxScale = Math.min(maxScale, elemScaledWidth, elemScaledHeight)
         } else if (options.contain === 'outside') {
           minScale = Math.max(minScale, elemScaledWidth, elemScaledHeight)
+        } else if (options.contain === 'automatic') {
+          const parent = elem.parentNode as HTMLElement
+          let parentScale = 1
+          if (parent.offsetWidth) {
+            parentScale = dims.parent.width / parent.offsetWidth
+          }
+          const parentInnerWidth =
+            dims.parent.width / parentScale -
+            dims.parent.padding.left -
+            dims.parent.padding.right -
+            dims.parent.border.left -
+            dims.parent.border.right
+          const parentInnerHeight =
+            dims.parent.height / parentScale -
+            dims.parent.padding.top -
+            dims.parent.padding.bottom -
+            dims.parent.border.top -
+            dims.parent.border.bottom
+          // Calculate layout dimensions of element
+          const elemLayoutWidth = dims.elem.width / scale / parentScale
+          const elemLayoutHeight = dims.elem.height / scale / parentScale
+
+          const scaleX = parentInnerWidth / elemLayoutWidth
+          const scaleY = parentInnerHeight / elemLayoutHeight
+          minScale = Math.min(scaleX, scaleY)
         }
       }
     }
-
     result.scale = Math.min(Math.max(toScale, minScale), maxScale)
     return result
   }
@@ -426,10 +522,11 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
 
   function reset(resetOptions?: PanzoomOptions) {
     const opts = { ...options, animate: true, force: true, ...resetOptions }
-    scale = constrainScale(opts.startScale, opts).scale
-    const panResult = constrainXY(opts.startX, opts.startY, scale, opts)
+    const targetScale = constrainScale(opts.startScale, opts).scale
+    const panResult = constrainXY(opts.startX, opts.startY, targetScale, opts)
     x = panResult.x
     y = panResult.y
+    scale = targetScale
     return setTransformWithEvent('panzoomreset', opts)
   }
 
