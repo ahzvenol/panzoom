@@ -125,6 +125,22 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
     }
   }
 
+  /**
+   * 获取祖先元素的累积缩放比例
+   * 通过比较父元素的屏幕尺寸(getBoundingClientRect)和布局尺寸(offsetWidth/offsetHeight)来计算
+   */
+  function getAncestorScale(): { x: number; y: number } {
+    const parentElement = parent as HTMLElement
+    if (!parentElement.offsetWidth || !parentElement.offsetHeight) {
+      return { x: 1, y: 1 }
+    }
+    const rect = parentElement.getBoundingClientRect()
+    return {
+      x: rect.width / parentElement.offsetWidth,
+      y: rect.height / parentElement.offsetHeight
+    }
+  }
+
   let x = 0
   let y = 0
   let scale = 1
@@ -190,16 +206,24 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
     }
     if (opts.contain) {
       const dims = getDimensions(elem)
-      const realWidth = dims.elem.width / scale
-      const realHeight = dims.elem.height / scale
+      const ancestorScale = getAncestorScale()
+
+      // 将屏幕像素尺寸转换为布局像素尺寸
+      const realWidth = dims.elem.width / ancestorScale.x / scale
+      const realHeight = dims.elem.height / ancestorScale.y / scale
       const scaledWidth = realWidth * toScale
       const scaledHeight = realHeight * toScale
       const diffHorizontal = (scaledWidth - realWidth) / 2
       const diffVertical = (scaledHeight - realHeight) / 2
+
+      // 父元素布局尺寸
+      const parentLayoutWidth = dims.parent.width / ancestorScale.x
+      const parentLayoutHeight = dims.parent.height / ancestorScale.y
+
       if (opts.contain === 'inside') {
         const minX = (-dims.elem.margin.left - dims.parent.padding.left + diffHorizontal) / toScale
         const maxX =
-          (dims.parent.width -
+          (parentLayoutWidth -
             scaledWidth -
             dims.parent.padding.left -
             dims.elem.margin.left -
@@ -210,7 +234,7 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
         result.x = Math.max(Math.min(result.x, maxX), minX)
         const minY = (-dims.elem.margin.top - dims.parent.padding.top + diffVertical) / toScale
         const maxY =
-          (dims.parent.height -
+          (parentLayoutHeight -
             scaledHeight -
             dims.parent.padding.top -
             dims.elem.margin.top -
@@ -221,7 +245,7 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
         result.y = Math.max(Math.min(result.y, maxY), minY)
       } else if (opts.contain === 'outside') {
         const minX =
-          (-(scaledWidth - dims.parent.width) -
+          (-(scaledWidth - parentLayoutWidth) -
             dims.parent.padding.left -
             dims.parent.border.left -
             dims.parent.border.right +
@@ -230,7 +254,7 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
         const maxX = (diffHorizontal - dims.parent.padding.left) / toScale
         result.x = Math.max(Math.min(result.x, maxX), minX)
         const minY =
-          (-(scaledHeight - dims.parent.height) -
+          (-(scaledHeight - parentLayoutHeight) -
             dims.parent.padding.top -
             dims.parent.border.top -
             dims.parent.border.bottom +
@@ -239,86 +263,76 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
         const maxY = (diffVertical - dims.parent.padding.top) / toScale
         result.y = Math.max(Math.min(result.y, maxY), minY)
       } else if (opts.contain === 'automatic') {
-        // Automatic containment:
-        // We need to account for parent scale (CSS transform on parent).
-        // dims.parent.width/height are Screen pixels (scaled).
-        // dims.parent.padding/border are Layout pixels (unscaled).
-        // To mix them, we calculate parentScale and convert screen dimensions to layout dimensions.
-        const parent = elem.parentNode as HTMLElement
-        let parentScale = 1
-        if (parent.offsetWidth) {
-          parentScale = dims.parent.width / parent.offsetWidth
-        }
-
+        // 计算父元素有效内容区域（布局像素）
         const parentInnerWidth =
-          dims.parent.width / parentScale -
+          parentLayoutWidth -
           dims.parent.padding.left -
           dims.parent.padding.right -
           dims.parent.border.left -
           dims.parent.border.right
         const parentInnerHeight =
-          dims.parent.height / parentScale -
+          parentLayoutHeight -
           dims.parent.padding.top -
           dims.parent.padding.bottom -
           dims.parent.border.top -
           dims.parent.border.bottom
 
-        // Convert scaled dimensions to layout space for comparison and calculation
-        const scaledWidthLayout = scaledWidth / parentScale
-        const scaledHeightLayout = scaledHeight / parentScale
-        const diffHorizontalLayout = diffHorizontal / parentScale
-        const diffVerticalLayout = diffVertical / parentScale
+        // 判断每个轴是否溢出
+        const overflowX = scaledWidth > parentInnerWidth
+        const overflowY = scaledHeight > parentInnerHeight
 
-        // X AXIS
-        if (scaledWidthLayout < parentInnerWidth) {
-          // Center horizontal
+        // X 轴处理
+        if (overflowX) {
+          // 溢出时使用 outside 逻辑
           const minX =
-            (-dims.elem.margin.left - dims.parent.padding.left + diffHorizontalLayout) / toScale
-          const maxX =
-            (parentInnerWidth -
-              scaledWidthLayout -
-              dims.elem.margin.left -
-              dims.parent.padding.left +
-              diffHorizontalLayout) /
-            toScale
-          result.x = (minX + maxX) / 2
-        } else {
-          // Overflow horizontal (Outside logic)
-          const minX =
-            (-(scaledWidthLayout - dims.parent.width / parentScale) -
+            (-(scaledWidth - parentLayoutWidth) -
               dims.parent.padding.left -
               dims.parent.border.left -
               dims.parent.border.right +
-              diffHorizontalLayout) /
+              diffHorizontal) /
             toScale
-          const maxX = (diffHorizontalLayout - dims.parent.padding.left) / toScale
+          const maxX = (diffHorizontal - dims.parent.padding.left) / toScale
           result.x = Math.max(Math.min(result.x, maxX), minX)
+        } else {
+          // 不溢出时居中
+          const minX = (-dims.elem.margin.left - dims.parent.padding.left + diffHorizontal) / toScale
+          const maxX =
+            (parentLayoutWidth -
+              scaledWidth -
+              dims.parent.padding.left -
+              dims.elem.margin.left -
+              dims.parent.border.left -
+              dims.parent.border.right +
+              diffHorizontal) /
+            toScale
+          result.x = (minX + maxX) / 2
         }
 
-        // Y AXIS
-        if (scaledHeightLayout < parentInnerHeight) {
-          // Center vertical
+        // Y 轴处理
+        if (overflowY) {
+          // 溢出时使用 outside 逻辑
           const minY =
-            (-dims.elem.margin.top - dims.parent.padding.top + diffVerticalLayout) / toScale
-          const maxY =
-            (parentInnerHeight -
-              scaledHeightLayout -
-              dims.elem.margin.top -
-              dims.parent.padding.top +
-              diffVerticalLayout) /
-            toScale
-          result.y = (minY + maxY) / 2
-        } else {
-          // Overflow vertical (Outside logic)
-          const minY =
-            (-(scaledHeightLayout - dims.parent.height / parentScale) -
+            (-(scaledHeight - parentLayoutHeight) -
               dims.parent.padding.top -
               dims.parent.border.top -
               dims.parent.border.bottom +
-              diffVerticalLayout) /
+              diffVertical) /
             toScale
-          const maxY = (diffVerticalLayout - dims.parent.padding.top) / toScale
+          const maxY = (diffVertical - dims.parent.padding.top) / toScale
           result.y = Math.max(Math.min(result.y, maxY), minY)
+        } else {
+          // 不溢出时居中
+          const minY = (-dims.elem.margin.top - dims.parent.padding.top + diffVertical) / toScale
+          const maxY =
+            (parentLayoutHeight -
+              scaledHeight -
+              dims.parent.padding.top -
+              dims.elem.margin.top -
+              dims.parent.border.top -
+              dims.parent.border.bottom +
+              diffVertical) /
+            toScale
+          result.y = (minY + maxY) / 2
         }
       }
     }
@@ -328,6 +342,7 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
     }
     return result
   }
+
   function constrainScale(toScale: number, zoomOptions?: ZoomOptions) {
     const opts = { ...options, ...zoomOptions }
     const result = { scale, opts }
@@ -338,42 +353,34 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
     let maxScale = options.maxScale
     if (opts.contain) {
       const dims = getDimensions(elem)
-      const elemWidth = dims.elem.width / scale
-      const elemHeight = dims.elem.height / scale
+      const ancestorScale = getAncestorScale()
+
+      // 转换为布局像素（X和Y方向分别处理）
+      const elemWidth = dims.elem.width / ancestorScale.x / scale
+      const elemHeight = dims.elem.height / ancestorScale.y / scale
+
       if (elemWidth > 1 && elemHeight > 1) {
-        const parentWidth = dims.parent.width - dims.parent.border.left - dims.parent.border.right
-        const parentHeight = dims.parent.height - dims.parent.border.top - dims.parent.border.bottom
+        const parentWidth =
+          dims.parent.width / ancestorScale.x - dims.parent.border.left - dims.parent.border.right
+        const parentHeight =
+          dims.parent.height / ancestorScale.y - dims.parent.border.top - dims.parent.border.bottom
         const elemScaledWidth = parentWidth / elemWidth
         const elemScaledHeight = parentHeight / elemHeight
+
         if (options.contain === 'inside') {
           maxScale = Math.min(maxScale, elemScaledWidth, elemScaledHeight)
         } else if (options.contain === 'outside') {
           minScale = Math.max(minScale, elemScaledWidth, elemScaledHeight)
         } else if (options.contain === 'automatic') {
-          const parent = elem.parentNode as HTMLElement
-          let parentScale = 1
-          if (parent.offsetWidth) {
-            parentScale = dims.parent.width / parent.offsetWidth
-          }
+          // 有效内容区域
           const parentInnerWidth =
-            dims.parent.width / parentScale -
-            dims.parent.padding.left -
-            dims.parent.padding.right -
-            dims.parent.border.left -
-            dims.parent.border.right
+            parentWidth - dims.parent.padding.left - dims.parent.padding.right
           const parentInnerHeight =
-            dims.parent.height / parentScale -
-            dims.parent.padding.top -
-            dims.parent.padding.bottom -
-            dims.parent.border.top -
-            dims.parent.border.bottom
-          // Calculate layout dimensions of element
-          const elemLayoutWidth = dims.elem.width / scale / parentScale
-          const elemLayoutHeight = dims.elem.height / scale / parentScale
-
-          const scaleX = parentInnerWidth / elemLayoutWidth
-          const scaleY = parentInnerHeight / elemLayoutHeight
-          minScale = Math.min(scaleX, scaleY)
+            parentHeight - dims.parent.padding.top - dims.parent.padding.bottom
+          const fitScaleX = parentInnerWidth / elemWidth
+          const fitScaleY = parentInnerHeight / elemHeight
+          // 使用 contain/fit 模式：取较小值确保完全显示
+          minScale = Math.max(minScale, Math.min(fitScaleX, fitScaleY))
         }
       }
     }
@@ -452,37 +459,38 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
     originalEvent?: PanzoomEventDetail['originalEvent']
   ) {
     const dims = getDimensions(elem)
+    const ancestorScale = getAncestorScale()
 
-    // Instead of thinking of operating on the panzoom element,
-    // think of operating on the area inside the panzoom
-    // element's parent
-    // Subtract padding and border
+    // 将屏幕像素尺寸转换为布局像素
+    const parentLayoutWidth = dims.parent.width / ancestorScale.x
+    const parentLayoutHeight = dims.parent.height / ancestorScale.y
+    const elemLayoutWidth = dims.elem.width / ancestorScale.x
+    const elemLayoutHeight = dims.elem.height / ancestorScale.y
+
+    // 计算有效区域（布局像素）
     const effectiveArea = {
       width:
-        dims.parent.width -
+        parentLayoutWidth -
         dims.parent.padding.left -
         dims.parent.padding.right -
         dims.parent.border.left -
         dims.parent.border.right,
       height:
-        dims.parent.height -
+        parentLayoutHeight -
         dims.parent.padding.top -
         dims.parent.padding.bottom -
         dims.parent.border.top -
         dims.parent.border.bottom
     }
 
-    // Adjust the clientX/clientY to ignore the area
-    // outside the effective area
+    // 将鼠标位置从屏幕像素转换为相对于父元素的布局像素（X和Y方向分别处理）
     let clientX =
-      point.clientX -
-      dims.parent.left -
+      (point.clientX - dims.parent.left) / ancestorScale.x -
       dims.parent.padding.left -
       dims.parent.border.left -
       dims.elem.margin.left
     let clientY =
-      point.clientY -
-      dims.parent.top -
+      (point.clientY - dims.parent.top) / ancestorScale.y -
       dims.parent.padding.top -
       dims.parent.border.top -
       dims.elem.margin.top
@@ -490,8 +498,8 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
     // Adjust the clientX/clientY for HTML elements,
     // because they have a transform-origin of 50% 50%
     if (!isSVG) {
-      clientX -= dims.elem.width / scale / 2
-      clientY -= dims.elem.height / scale / 2
+      clientX -= elemLayoutWidth / scale / 2
+      clientY -= elemLayoutHeight / scale / 2
     }
 
     // Convert the mouse point from it's position over the
@@ -575,6 +583,9 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
     const hasMultiple = pointers.length > 1
     let toScale = scale
 
+    // 获取祖先缩放因子，用于将屏幕像素转换为布局像素
+    const ancestorScale = getAncestorScale()
+
     if (hasMultiple) {
       // A startDistance of 0 means
       // that there weren't 2 pointers
@@ -584,7 +595,9 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
       }
       // Use the distance between the first 2 pointers
       // to determine the current scale
-      const diff = getDistance(pointers) - startDistance
+      // 距离差使用平均缩放因子转换
+      const avgAncestorScale = (ancestorScale.x + ancestorScale.y) / 2
+      const diff = (getDistance(pointers) - startDistance) / avgAncestorScale
       toScale = constrainScale((diff * options.step) / 80 + startScale).scale
       zoomToPoint(toScale, current, { animate: false }, event)
     }
@@ -597,9 +610,10 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
     // See https://github.com/timmywil/panzoom/issues/512
     // and https://github.com/timmywil/panzoom/issues/606
     if (!hasMultiple || options.pinchAndPan) {
+      // 屏幕像素位移需要除以祖先缩放转换为布局像素
       pan(
-        origX + (current.clientX - startClientX) / toScale,
-        origY + (current.clientY - startClientY) / toScale,
+        origX + (current.clientX - startClientX) / ancestorScale.x / toScale,
+        origY + (current.clientY - startClientY) / ancestorScale.y / toScale,
         { animate: false },
         event
       )
