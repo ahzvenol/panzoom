@@ -510,7 +510,7 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
       y: (clientY / effectiveArea.height) * (effectiveArea.height * toScale)
     }
 
-    return zoom(toScale, { ...zoomOptions, animate: false, focal }, originalEvent)
+    return zoom(toScale, { animate: false, ...zoomOptions, focal }, originalEvent)
   }
 
   function zoomWithWheel(event: WheelEvent, zoomOptions?: ZoomOptions) {
