@@ -145,7 +145,7 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
   let y = 0
   let scale = 1
   let isPanning = false
-  zoom(options.startScale, { animate: false, force: true })
+  zoom(options.startScale, { animate: false, force: true, scaleSmoothing: 0 })
   // Wait for scale to update
   // for accurate dimensions
   // to constrain initial values
@@ -440,7 +440,7 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
   }
 
   function zoomInOut(isIn: boolean, zoomOptions?: ZoomOptions) {
-    const opts = { ...options, animate: true, ...zoomOptions }
+    const opts = { ...options, animate: true, scaleSmoothing: 0, ...zoomOptions }
     return zoom(scale * Math.exp((isIn ? 1 : -1) * opts.step), opts)
   }
 
@@ -510,7 +510,11 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
       y: (clientY / effectiveArea.height) * (effectiveArea.height * toScale)
     }
 
-    return zoom(toScale, { animate: false, ...zoomOptions, focal }, originalEvent)
+    return zoom(
+      toScale,
+      { animate: false, scaleSmoothing: 0, ...zoomOptions, focal },
+      originalEvent
+    )
   }
 
   function zoomWithWheel(event: WheelEvent, zoomOptions?: ZoomOptions) {
@@ -529,7 +533,7 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
   }
 
   function reset(resetOptions?: PanzoomOptions) {
-    const opts = { ...options, animate: true, force: true, ...resetOptions }
+    const opts = { ...options, animate: true, force: true, scaleSmoothing: 0, ...resetOptions }
     const targetScale = constrainScale(opts.startScale, opts).scale
     const panResult = constrainXY(opts.startX, opts.startY, targetScale, opts)
     x = panResult.x
@@ -599,7 +603,12 @@ function Panzoom(elem: HTMLElement | SVGElement, options?: PanzoomGlobalOptions)
       const avgAncestorScale = (ancestorScale.x + ancestorScale.y) / 2
       const diff = (getDistance(pointers) - startDistance) / avgAncestorScale
       toScale = constrainScale((diff * options.step) / 80 + startScale).scale
-      zoomToPoint(toScale, current, { animate: false }, event)
+      zoomToPoint(
+        toScale,
+        current,
+        { animate: false, scaleSmoothing: options.scaleSmoothing },
+        event
+      )
     }
 
     // Pan during pinch if pinchAndPan is true.
